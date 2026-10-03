@@ -4,9 +4,9 @@ import streamlit as st
 from st_audiorec import st_audiorec
 import whisper
 
-st.set_page_config(page_title="Dyktafon AI", page_icon="🎙️", layout="centered")
+st.set_page_config(page_title="Dyktafon AI", page_icon="🎙️️", layout="centered")
 
-# Ukrycie podpowiedzi "Press Ctrl+Enter to apply" pod polem tekstowym
+# Ukrycie podpowiedzi "Press Ctrl+Enter to apply" oraz wyśrodkowanie tytułu i napisów
 st.markdown(
     """
     <style>
@@ -15,6 +15,9 @@ st.markdown(
     }
     .stTextArea [data-testid="InputInstructions"] {
         display: none !important;
+    }
+    .main-title, .main-caption {
+        text-align: center;
     }
     </style>
     """,
@@ -37,24 +40,22 @@ if "history" not in st.session_state:
 if "last_processed_audio_hash" not in st.session_state:
     st.session_state.last_processed_audio_hash = None
 
-# Logo i nagłówek
+# Wyśrodkowane logo w oryginalnym rozmiarze na górze
 if os.path.exists(LOGO_PATH):
-    col_logo, col_title = st.columns([1, 4])
-    with col_logo:
-        st.image(LOGO_PATH, width=110)
-    with col_title:
-        st.title("🎙️ Dyktafon AI")
-else:
-    st.title("🎙️ Dyktafon AI")
+    _, col_center, _ = st.columns([1, 2, 1])
+    with col_center:
+        st.image(LOGO_PATH)
 
-st.caption(
-    "Kliknij 'Start Recording', aby nagrać mowę (zobaczysz falę dźwiękową). Po kliknięciu 'Stop' tekst pojawi się automatycznie."
+st.markdown("<h1 class='main-title'>🎙️ Dyktafon AI</h1>", unsafe_allow_html=True)
+st.markdown(
+    "<p class='main-caption'>Kliknij 'Start Recording', aby nagrać mowę (zobaczysz falę dźwiękową). Po kliknięciu 'Stop' tekst pojawi się automatycznie.</p>",
+    unsafe_allow_html=True,
 )
 
 # Panel boczny z ustawieniami
 with st.sidebar:
     if os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, width=120)
+        st.image(LOGO_PATH)
     st.header("⚙ Ustawienia")
     selected_model = st.selectbox(
         "Model Whisper",
@@ -110,7 +111,7 @@ if wav_audio_data is not None:
                 if os.path.exists(TEMP_AUDIO_PATH):
                     os.remove(TEMP_AUDIO_PATH)
 
-    # Przycisk pobierania audio umieszczony bezpośrednio pod nagraniem
+    # Przycisk pobierania audio bezpośrednio pod nagraniem
     st.download_button(
         label="⬇️ Pobierz plik nagrania (.wav)",
         data=wav_audio_data,
