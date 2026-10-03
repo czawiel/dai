@@ -89,10 +89,28 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Panel boczny: Instrukcja obsługi + Ustawienia
+# Panel boczny: Ustawienia na górze, Instrukcja na dole
 with st.sidebar:
     if os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH)
+
+    st.header("⚙ Ustawienia")
+    selected_model = st.selectbox(
+        "Model Whisper",
+        options=["tiny", "base", "small"],
+        index=1,
+        help="Model 'base' oferuje optymalny balans między szybkością a dokładnością na maszynach CPU.",
+    )
+    language_choice = st.selectbox(
+        "Język transkrypcji",
+        options=["pl", "en", "auto"],
+        index=0,
+        format_func=lambda x: "Polski"
+        if x == "pl"
+        else ("Angielski" if x == "en" else "Wykryj automatycznie"),
+    )
+
+    st.divider()
 
     st.header("📖 Instrukcja obsługi")
     st.markdown(
@@ -116,24 +134,6 @@ with st.sidebar:
         )
     else:
         st.info("Plik readme.pdf będzie dostępny po umieszczeniu go w folderze.")
-
-    st.divider()
-
-    st.header("⚙ Ustawienia")
-    selected_model = st.selectbox(
-        "Model Whisper",
-        options=["tiny", "base", "small"],
-        index=1,
-        help="Model 'base' oferuje optymalny balans między szybkością a dokładnością na maszynach CPU.",
-    )
-    language_choice = st.selectbox(
-        "Język transkrypcji",
-        options=["pl", "en", "auto"],
-        index=0,
-        format_func=lambda x: "Polski"
-        if x == "pl"
-        else ("Angielski" if x == "en" else "Wykryj automatycznie"),
-    )
 
 with st.spinner(f"Ładowanie modelu '{selected_model}'..."):
     model = load_whisper_model(selected_model)
