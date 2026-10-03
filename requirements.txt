@@ -1,5 +1,5 @@
 streamlit
 openai-whisper
-audio-recorder-streamlit
+streamlit-audiorec
 numpy
 scipy
