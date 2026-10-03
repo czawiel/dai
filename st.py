@@ -44,7 +44,7 @@ components.html(
                     });
                 }
             } catch (e) {
-                // ignoruj przy ograniczeniach domenowych
+                // ignoruj ograniczenia cross-origin
             }
         });
     };
@@ -111,7 +111,7 @@ with st.spinner(f"Ładowanie modelu '{selected_model}'..."):
 
 st.subheader("1. Nagraj dźwięk")
 
-# Komponent z falą dźwiękową (Start Recording i Stop)
+# Komponent z falą dźwiękową (tylko Start Recording i Stop)
 wav_audio_data = st_audiorec()
 
 # Automatyczna transkrypcja natychmiast po naciśnięciu "Stop"
@@ -145,7 +145,7 @@ if wav_audio_data is not None:
                 if os.path.exists(TEMP_AUDIO_PATH):
                     os.remove(TEMP_AUDIO_PATH)
 
-    # Własny przycisk pobierania audio pod nagraniem
+    # Własny przycisk pobierania audio umieszczony pod nagraniem
     st.download_button(
         label="⬇️ Pobierz plik nagrania (.wav)",
         data=wav_audio_data,
