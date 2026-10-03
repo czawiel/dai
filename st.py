@@ -63,7 +63,7 @@ OUTPUT_FILE = "transkrypcja.txt"
 LOGO_PATH = "logo.png"
 README_PATH = "readme.pdf"
 
-# Słownik mapujący przyjazne nazwy na identyfikatory modeli Whisper
+# Słownik mapujący nazwy na identyfikatory modeli Whisper
 MODEL_MAP = {
     "Najszybszy (tiny)": "tiny",
     "Standardowy (base)": "base",
@@ -72,7 +72,7 @@ MODEL_MAP = {
 
 
 @st.cache_resource
-def load_whisper_model(model_name: str = "base"):
+def load_whisper_model(model_name: str = "tiny"):
     return whisper.load_model(model_name, device="cpu")
 
 
@@ -82,10 +82,10 @@ if "history" not in st.session_state:
 if "last_processed_audio_hash" not in st.session_state:
     st.session_state.last_processed_audio_hash = None
 
-# Tytuł główny
-st.markdown("<h1 class='main-title'>🎙️ Dyktafon AI</h1>", unsafe_allow_html=True)
+# Tytuł główny i zmieniony tekst informacyjny
+st.markdown("<h1 class='main-title'>🎙️️ Dyktafon AI</h1>", unsafe_allow_html=True)
 st.markdown(
-    "<p class='main-caption'>Kliknij 'Zacznij Nagrywać', powiedz coś i kliknij 'Stop'. Tekst pojawi się w polu poniżej. Jeśli nie jesteś zadowolony z rezultatów zmień model Whisper na \"najdokładniejszy\".</p>",
+    "<p class='main-caption'>Kliknij 'Zacznij Nagrywać', powiedz coś i kliknij 'Stop'. Tekst pojawi się w polu poniżej. Staraj się mówić do mikrofonu wolno i wyraźnie.</p>",
     unsafe_allow_html=True,
 )
 
@@ -99,8 +99,8 @@ with st.sidebar:
     selected_model_label = st.selectbox(
         "Model Whisper",
         options=model_options,
-        index=1,  # "Standardowy (base)" jest domyślny
-        help="Wybierz 'Najdokładniejszy' dla lepszej gramatyki i odmiany słów lub 'Najszybszy' dla natychmiastowego wyniku.",
+        index=0,  # "Najszybszy (tiny)" jest domyślny
+        help="Wybierz 'Najdokładniejszy' dla lepszej gramatyki lub 'Najszybszy' dla natychmiastowego wyniku.",
     )
     selected_model = MODEL_MAP[selected_model_label]
 
