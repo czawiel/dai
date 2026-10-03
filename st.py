@@ -1,3 +1,4 @@
+import hashlib
 import os
 import streamlit as st
 from st_audiorec import st_audiorec
@@ -11,64 +12,51 @@ OUTPUT_FILE = "transkrypcja.txt"
 
 @st.cache_resource
 def load_whisper_model(model_name: str = "base"):
-    """
-    Pobiera i buforuje model Whisper.
-    Model 'base' lub 'small' jest zalecany dla darmowych serwerów chmurowych z CPU.
-    """
     return whisper.load_model(model_name, device="cpu")
 
 
-# Inicjalizacja historii transkrypcji w sesji
+# Inicjalizacja stanu sesji
 if "history" not in st.session_state:
     st.session_state.history = []
+if "last_processed_audio_hash" not in st.session_state:
+    st.session_state.last_processed_audio_hash = None
 
 st.title("🎙️ Dyktafon AI")
-st.caption(
-    "Nagrywaj bezpośrednio z mikrofonu w przeglądarce i transkrybuj za pomocą Whisper AI."
-)
+st.caption("Nagrywaj z mikrofonu – po zatrzymaniu nagrania wynik pojawi się od razu automatycznie.")
 
-# Wybór modelu w panelu bocznym
+# Panel boczny z ustawieniami
 with st.sidebar:
-    st.header("⚙️ Ustawienia")
+    st.header("⚙️️ Ustawienia")
     selected_model = st.selectbox(
         "Model Whisper",
         options=["tiny", "base", "small"],
         index=1,
-        help="Mniejsze modele ('tiny', 'base') działają szybciej na serwerach CPU.",
+        help="Model 'base' oferuje świetny balans między szybkością a dokładnością na darmowych serwerach CPU.",
     )
     language_choice = st.selectbox(
         "Język transkrypcji",
         options=["pl", "en", "auto"],
         index=0,
-        format_func=lambda x: "Polski"
-        if x == "pl"
-        else ("Angielski" if x == "en" else "Wykryj automatycznie"),
+        format_func=lambda x: "Polski" if x == "pl" else ("Angielski" if x == "en" else "Wykryj automatycznie"),
     )
 
 with st.spinner(f"Ładowanie modelu '{selected_model}'..."):
     model = load_whisper_model(selected_model)
 
 st.subheader("1. Nagraj dźwięk")
-# Komponent nagrywający audio z poziomu przeglądarki użytkownika
+# Komponent nagrywający – po kliknięciu "Stop" natychmiast zwraca bajty audio
 wav_audio_data = st_audiorec()
 
+# Automatyczne przetwarzanie od razu po pojawieniu się nowego nagrania
 if wav_audio_data is not None:
-    st.subheader("2. Odtwarzacz")
-    st.audio(wav_audio_data, format="audio/wav")
+    # Obliczamy hash, aby transkrybować dane nagranie tylko jeden raz
+    current_hash = hashlib.md5(wav_audio_data).hexdigest()
 
-    col_transcribe, col_clear = st.columns([2, 1])
+    if current_hash != st.session_state.last_processed_audio_hash:
+        with st.spinner("⏳ Trwa automatyczna transkrypcja mowy na tekst..."):
+            with open(TEMP_AUDIO_PATH, "wb") as f:
+                f.write(wav_audio_data)
 
-    with col_transcribe:
-        start_transcription = st.button(
-            "🚀 Transkrybuj nagranie", type="primary", use_container_width=True
-        )
-
-    if start_transcription:
-        # Zapis tymczasowy pliku audio do przetworzenia przez Whisper
-        with open(TEMP_AUDIO_PATH, "wb") as f:
-            f.write(wav_audio_data)
-
-        with st.spinner("⏳ Trwa transkrypcja mowy na tekst..."):
             try:
                 lang = None if language_choice == "auto" else language_choice
                 result = model.transcribe(
@@ -80,24 +68,25 @@ if wav_audio_data is not None:
 
                 if recognized_text:
                     st.session_state.history.append(recognized_text)
-                    st.success("Transkrypcja zakończona sukcesem!")
+                    st.toast("✅ Transkrypcja gotowa!", icon="🎉")
                 else:
-                    st.warning("Nie wykryto żadnej mowy w nagraniu.")
+                    st.warning("Nie wykryto mowy w nagraniu.")
 
+                st.session_state.last_processed_audio_hash = current_hash
             except Exception as exc:
-                st.error(f"Wystąpił błąd podczas transkrypcji: {exc}")
+                st.error(f"Wystąpił błąd transkrypcji: {exc}")
             finally:
                 if os.path.exists(TEMP_AUDIO_PATH):
                     os.remove(TEMP_AUDIO_PATH)
 
 st.divider()
 
-# Wyświetlanie zebranego tekstu
-st.subheader("3. Rozpoznany tekst")
+# Wyświetlanie wyniku
+st.subheader("2. Rozpoznany tekst")
 
 full_transcription = "\n".join(st.session_state.history)
 
-text_area = st.text_area(
+st.text_area(
     label="Wynik:",
     value=full_transcription,
     height=200,
@@ -119,4 +108,5 @@ with col_download:
 with col_reset:
     if st.button("🗑️ Wyczyść historię", use_container_width=True):
         st.session_state.history = []
+        st.session_state.last_processed_audio_hash = None
         st.rerun()
