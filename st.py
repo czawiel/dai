@@ -1,154 +1,122 @@
 import os
-import numpy as np
-from scipy.io.wavfile import write
-import sounddevice as sd
 import streamlit as st
+from st_audiorec import st_audiorec
 import whisper
-
-SAMPLE_RATE = 16000
-CHUNK_DURATION = 0.1
-SILENCE_THRESHOLD = 0.015
-SILENCE_LIMIT_SEC = 1.3
-PRE_PAD_CHUNKS = 4
-OUTPUT_FILE = "transkrypcja.txt"
 
 st.set_page_config(page_title="Dyktafon AI", page_icon="🎙️", layout="centered")
 
+TEMP_AUDIO_PATH = "temp_recorded.wav"
+OUTPUT_FILE = "transkrypcja.txt"
+
 
 @st.cache_resource
-def load_whisper_model():
-    return whisper.load_model("small", device="cpu")
+def load_whisper_model(model_name: str = "base"):
+    """
+    Pobiera i buforuje model Whisper.
+    Model 'base' lub 'small' jest zalecany dla darmowych serwerów chmurowych z CPU.
+    """
+    return whisper.load_model(model_name, device="cpu")
 
 
-def transcribe(model, audio_data):
-    """Zapisuje fragment do pliku tymczasowego i transkrybuje model Whisper."""
-    temp_file = "temp_sentence.wav"
-    try:
-        audio_int16 = (audio_data * 32767).astype(np.int16)
-        write(temp_file, SAMPLE_RATE, audio_int16)
+# Inicjalizacja historii transkrypcji w sesji
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-        result = model.transcribe(
-            temp_file,
-            language="pl",
-            fp16=False,
-            beam_size=5,
-            condition_on_previous_text=False,
-            temperature=0.0,
-            no_speech_threshold=0.6,
-        )
-        text = result.get("text", "").strip()
-        text = text.replace("...", "").strip()
-        return text
-    except Exception as e:
-        st.error(f"Błąd transkrypcji: {e}")
-        return ""
-    finally:
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
+st.title("🎙️ Dyktafon AI")
+st.caption(
+    "Nagrywaj bezpośrednio z mikrofonu w przeglądarce i transkrybuj za pomocą Whisper AI."
+)
 
-
-# Inicjalizacja stanu sesji
-if "recording" not in st.session_state:
-    st.session_state.recording = False
-if "transcripts" not in st.session_state:
-    st.session_state.transcripts = []
-
-st.title("🎙️ Dyktafon AI (Streamlit)")
-
-with st.spinner("Ładowanie modelu Whisper..."):
-    model = load_whisper_model()
-
-col1, col2, col3 = st.columns([1, 1, 1])
-
-with col1:
-    if not st.session_state.recording:
-        if st.button("▶️ Start nasłuchiwania", use_container_width=True):
-            st.session_state.recording = True
-            st.rerun()
-
-with col2:
-    if st.session_state.recording:
-        if st.button("⏹️ Zatrzymaj", use_container_width=True):
-            st.session_state.recording = False
-            st.rerun()
-
-with col3:
-    if st.button("🗑️ Wyczyść", use_container_width=True):
-        st.session_state.transcripts = []
-        if os.path.exists(OUTPUT_FILE):
-            os.remove(OUTPUT_FILE)
-        st.rerun()
-
-# Kontenery do dynamicznego odświeżania widoku
-status_box = st.empty()
-log_box = st.empty()
-
-# Wyświetlanie dotychczasowej transkrypcji
-full_text = " ".join(st.session_state.transcripts)
-log_box.text_area("Rozpoznany tekst:", value=full_text, height=260)
-
-if st.session_state.recording:
-    status_box.info("🔴 Nasłuchuję... Mów do mikrofonu.")
-
-    chunk_samples = int(CHUNK_DURATION * SAMPLE_RATE)
-    silence_limit_chunks = int(SILENCE_LIMIT_SEC / CHUNK_DURATION)
-
-    ring_buffer = []
-    sentence_chunks = []
-    is_speaking = False
-    silent_chunks = 0
-
-    with sd.InputStream(
-        samplerate=SAMPLE_RATE, channels=1, dtype="float32"
-    ) as stream:
-        while st.session_state.recording:
-            chunk, _ = stream.read(chunk_samples)
-            volume = np.max(np.abs(chunk))
-
-            ring_buffer.append(chunk)
-            if len(ring_buffer) > PRE_PAD_CHUNKS:
-                ring_buffer.pop(0)
-
-            if volume > SILENCE_THRESHOLD:
-                if not is_speaking:
-                    is_speaking = True
-                    sentence_chunks.extend(ring_buffer)
-                else:
-                    sentence_chunks.append(chunk)
-                silent_chunks = 0
-            elif is_speaking:
-                sentence_chunks.append(chunk)
-                silent_chunks += 1
-
-                if silent_chunks >= silence_limit_chunks:
-                    audio_full = np.concatenate(sentence_chunks, axis=0)
-                    sentence_chunks = []
-                    is_speaking = False
-                    silent_chunks = 0
-
-                    if len(audio_full) > SAMPLE_RATE * 0.7:
-                        status_box.warning("⏳ Przetwarzanie transkrypcji...")
-                        recognized = transcribe(model, audio_full)
-
-                        if recognized:
-                            st.session_state.transcripts.append(recognized)
-                            with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
-                                f.write(recognized + "\n")
-                            # Aktualizacja pola tekstowego na żywo
-                            log_box.text_area(
-                                "Rozpoznany tekst:",
-                                value=" ".join(st.session_state.transcripts),
-                                height=260,
-                            )
-                        status_box.info("🔴 Nasłuchuję... Mów do mikrofonu.")
-else:
-    status_box.write("⏸️ Nasłuchiwanie wyłączone.")
-
-# Opcja pobrania pliku z tekstem
-if st.session_state.transcripts:
-    st.download_button(
-        label="💾 Pobierz transkrypcję (.txt)",
-        data=" ".join(st.session_state.transcripts),
-        file_name="transkrypcja.txt",
-        mime="text/plain",
+# Wybór modelu w panelu bocznym
+with st.sidebar:
+    st.header("⚙️ Ustawienia")
+    selected_model = st.selectbox(
+        "Model Whisper",
+        options=["tiny", "base", "small"],
+        index=1,
+        help="Mniejsze modele ('tiny', 'base') działają szybciej na serwerach CPU.",
     )
+    language_choice = st.selectbox(
+        "Język transkrypcji",
+        options=["pl", "en", "auto"],
+        index=0,
+        format_func=lambda x: "Polski"
+        if x == "pl"
+        else ("Angielski" if x == "en" else "Wykryj automatycznie"),
+    )
+
+with st.spinner(f"Ładowanie modelu '{selected_model}'..."):
+    model = load_whisper_model(selected_model)
+
+st.subheader("1. Nagraj dźwięk")
+# Komponent nagrywający audio z poziomu przeglądarki użytkownika
+wav_audio_data = st_audiorec()
+
+if wav_audio_data is not None:
+    st.subheader("2. Odtwarzacz")
+    st.audio(wav_audio_data, format="audio/wav")
+
+    col_transcribe, col_clear = st.columns([2, 1])
+
+    with col_transcribe:
+        start_transcription = st.button(
+            "🚀 Transkrybuj nagranie", type="primary", use_container_width=True
+        )
+
+    if start_transcription:
+        # Zapis tymczasowy pliku audio do przetworzenia przez Whisper
+        with open(TEMP_AUDIO_PATH, "wb") as f:
+            f.write(wav_audio_data)
+
+        with st.spinner("⏳ Trwa transkrypcja mowy na tekst..."):
+            try:
+                lang = None if language_choice == "auto" else language_choice
+                result = model.transcribe(
+                    TEMP_AUDIO_PATH,
+                    language=lang,
+                    fp16=False,
+                )
+                recognized_text = result.get("text", "").strip()
+
+                if recognized_text:
+                    st.session_state.history.append(recognized_text)
+                    st.success("Transkrypcja zakończona sukcesem!")
+                else:
+                    st.warning("Nie wykryto żadnej mowy w nagraniu.")
+
+            except Exception as exc:
+                st.error(f"Wystąpił błąd podczas transkrypcji: {exc}")
+            finally:
+                if os.path.exists(TEMP_AUDIO_PATH):
+                    os.remove(TEMP_AUDIO_PATH)
+
+st.divider()
+
+# Wyświetlanie zebranego tekstu
+st.subheader("3. Rozpoznany tekst")
+
+full_transcription = "\n".join(st.session_state.history)
+
+text_area = st.text_area(
+    label="Wynik:",
+    value=full_transcription,
+    height=200,
+    placeholder="Tu pojawi się przetłumaczony tekst...",
+)
+
+col_download, col_reset = st.columns([1, 1])
+
+with col_download:
+    if full_transcription:
+        st.download_button(
+            label="💾 Pobierz tekst (.txt)",
+            data=full_transcription,
+            file_name=OUTPUT_FILE,
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+with col_reset:
+    if st.button("🗑️ Wyczyść historię", use_container_width=True):
+        st.session_state.history = []
+        st.rerun()
