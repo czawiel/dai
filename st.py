@@ -77,19 +77,14 @@ if "last_processed_audio_hash" not in st.session_state:
 if "text_area_version" not in st.session_state:
     st.session_state.text_area_version = 0
 
-# Wyśrodkowane logo na górze
-if os.path.exists(LOGO_PATH):
-    _, col_center, _ = st.columns([1, 2, 1])
-    with col_center:
-        st.image(LOGO_PATH)
-
+# Nagłówek główny (bez środkowego logo)
 st.markdown("<h1 class='main-title'>🎙️ Dyktafon AI</h1>", unsafe_allow_html=True)
 st.markdown(
     "<p class='main-caption'>Kliknij 'Zacznij Nagrywać', aby nagrać mowę. Po kliknięciu 'Stop' tekst pojawi się automatycznie.</p>",
     unsafe_allow_html=True,
 )
 
-# Panel boczny: Ustawienia na górze, Instrukcja na dole
+# Panel boczny: Logo, Ustawienia na górze, Instrukcja na dole
 with st.sidebar:
     if os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH)
@@ -211,7 +206,7 @@ with col_download:
         )
 
 with col_reset:
-    if st.button("🗑️ Wyczyść wynik", use_container_width=True):
+    if st.button("🗑️️ Wyczyść wynik", use_container_width=True):
         st.session_state.history = []
         st.session_state.last_processed_audio_hash = None
         st.session_state.text_area_version += 1
