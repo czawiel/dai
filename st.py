@@ -7,7 +7,7 @@ import whisper
 
 st.set_page_config(page_title="Dyktafon AI", page_icon="🎙", layout="centered")
 
-# Ukrycie podpowiedzi "Press Ctrl+Enter to apply" oraz wyśrodkowanie tytułu i napisów
+# Ukrycie podpowiedzi "Press Ctrl+Enter to apply" oraz wyśrodkowanie nagłówków
 st.markdown(
     """
     <style>
@@ -44,12 +44,11 @@ components.html(
                     });
                 }
             } catch (e) {
-                // pomiń w przypadku blokady cross-origin
+                // ignoruj przy ograniczeniach domenowych
             }
         });
     };
 
-    // Obserwacja i cykliczne sprawdzanie pojawienia się ramki iframe
     setInterval(hideButtons, 150);
     </script>
     """,
@@ -72,6 +71,8 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "last_processed_audio_hash" not in st.session_state:
     st.session_state.last_processed_audio_hash = None
+if "text_area_version" not in st.session_state:
+    st.session_state.text_area_version = 0
 
 # Wyśrodkowane logo na górze
 if os.path.exists(LOGO_PATH):
@@ -110,7 +111,7 @@ with st.spinner(f"Ładowanie modelu '{selected_model}'..."):
 
 st.subheader("1. Nagraj dźwięk")
 
-# Komponent z falą dźwiękową (tylko Start Recording i Stop będą widoczne)
+# Komponent z falą dźwiękową (Start Recording i Stop)
 wav_audio_data = st_audiorec()
 
 # Automatyczna transkrypcja natychmiast po naciśnięciu "Stop"
@@ -144,7 +145,7 @@ if wav_audio_data is not None:
                 if os.path.exists(TEMP_AUDIO_PATH):
                     os.remove(TEMP_AUDIO_PATH)
 
-    # Własny przycisk pobierania audio umieszczony pod nagraniem
+    # Własny przycisk pobierania audio pod nagraniem
     st.download_button(
         label="⬇️ Pobierz plik nagrania (.wav)",
         data=wav_audio_data,
@@ -165,6 +166,7 @@ st.text_area(
     value=full_transcription,
     height=200,
     placeholder="Tu pojawi się przetłumaczony tekst...",
+    key=f"text_result_{st.session_state.text_area_version}",
 )
 
 col_download, col_reset = st.columns([1, 1])
@@ -180,7 +182,8 @@ with col_download:
         )
 
 with col_reset:
-    if st.button("🗑️ Wyczyść historię", use_container_width=True):
+    if st.button("🗑️ Wyczyść wynik", use_container_width=True):
         st.session_state.history = []
         st.session_state.last_processed_audio_hash = None
+        st.session_state.text_area_version += 1
         st.rerun()
