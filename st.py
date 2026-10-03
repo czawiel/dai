@@ -25,11 +25,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Wstrzyknięcie JS ukrywającego przyciski Reset i Download wewnątrz iframe komponentu audio
+# Wstrzyknięcie JS: ukrycie Reset/Download oraz zmiana etykiety na "Zacznij Nagrywać"
 components.html(
     """
     <script>
-    const hideButtons = () => {
+    const modifyButtons = () => {
         const iframes = window.parent.document.querySelectorAll('iframe');
         iframes.forEach(iframe => {
             try {
@@ -40,6 +40,8 @@ components.html(
                         const txt = btn.innerText.trim().toLowerCase();
                         if (txt === 'reset' || txt === 'download') {
                             btn.style.display = 'none';
+                        } else if (txt === 'start recording') {
+                            btn.innerText = 'Zacznij Nagrywać';
                         }
                     });
                 }
@@ -49,7 +51,7 @@ components.html(
         });
     };
 
-    setInterval(hideButtons, 150);
+    setInterval(modifyButtons, 150);
     </script>
     """,
     height=0,
@@ -83,7 +85,7 @@ if os.path.exists(LOGO_PATH):
 
 st.markdown("<h1 class='main-title'>🎙️ Dyktafon AI</h1>", unsafe_allow_html=True)
 st.markdown(
-    "<p class='main-caption'>Kliknij 'Start Recording', aby nagrać mowę. Po kliknięciu 'Stop' tekst pojawi się automatycznie.</p>",
+    "<p class='main-caption'>Kliknij 'Zacznij Nagrywać', aby nagrać mowę. Po kliknięciu 'Stop' tekst pojawi się automatycznie.</p>",
     unsafe_allow_html=True,
 )
 
@@ -95,7 +97,7 @@ with st.sidebar:
     st.header("📖 Instrukcja obsługi")
     st.markdown(
         """
-        1. **Nagraj:** Kliknij `Start Recording` i mów do mikrofonu.
+        1. **Nagraj:** Kliknij `Zacznij Nagrywać` i mów do mikrofonu.
         2. **Zatrzymaj:** Kliknij `Stop` – tekst pojawi się automatycznie.
         3. **Pobierz:** Zapisz gotowy plik `.txt` lub nagranie `.wav`.
         """
@@ -138,7 +140,7 @@ with st.spinner(f"Ładowanie modelu '{selected_model}'..."):
 
 st.subheader("1. Nagraj dźwięk")
 
-# Komponent z falą dźwiękową (Start Recording i Stop)
+# Komponent z falą dźwiękową
 wav_audio_data = st_audiorec()
 
 # Automatyczna transkrypcja natychmiast po naciśnięciu "Stop"
