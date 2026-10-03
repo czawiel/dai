@@ -1,10 +1,11 @@
 import hashlib
 import os
 import streamlit as st
+import streamlit.components.v1 as components
 from st_audiorec import st_audiorec
 import whisper
 
-st.set_page_config(page_title="Dyktafon AI", page_icon="🎙️️", layout="centered")
+st.set_page_config(page_title="Dyktafon AI", page_icon="🎙", layout="centered")
 
 # Ukrycie podpowiedzi "Press Ctrl+Enter to apply" oraz wyśrodkowanie tytułu i napisów
 st.markdown(
@@ -24,6 +25,38 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Wstrzyknięcie JS ukrywającego przyciski Reset i Download wewnątrz iframe komponentu audio
+components.html(
+    """
+    <script>
+    const hideButtons = () => {
+        const iframes = window.parent.document.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                if (doc) {
+                    const buttons = doc.querySelectorAll('button');
+                    buttons.forEach(btn => {
+                        const txt = btn.innerText.trim().toLowerCase();
+                        if (txt === 'reset' || txt === 'download') {
+                            btn.style.display = 'none';
+                        }
+                    });
+                }
+            } catch (e) {
+                // pomiń w przypadku blokady cross-origin
+            }
+        });
+    };
+
+    // Obserwacja i cykliczne sprawdzanie pojawienia się ramki iframe
+    setInterval(hideButtons, 150);
+    </script>
+    """,
+    height=0,
+    width=0,
+)
+
 TEMP_AUDIO_PATH = "temp_recorded.wav"
 OUTPUT_FILE = "transkrypcja.txt"
 LOGO_PATH = "logo.png"
@@ -40,7 +73,7 @@ if "history" not in st.session_state:
 if "last_processed_audio_hash" not in st.session_state:
     st.session_state.last_processed_audio_hash = None
 
-# Wyśrodkowane logo w oryginalnym rozmiarze na górze
+# Wyśrodkowane logo na górze
 if os.path.exists(LOGO_PATH):
     _, col_center, _ = st.columns([1, 2, 1])
     with col_center:
@@ -48,7 +81,7 @@ if os.path.exists(LOGO_PATH):
 
 st.markdown("<h1 class='main-title'>🎙️ Dyktafon AI</h1>", unsafe_allow_html=True)
 st.markdown(
-    "<p class='main-caption'>Kliknij 'Start Recording', aby nagrać mowę (zobaczysz falę dźwiękową). Po kliknięciu 'Stop' tekst pojawi się automatycznie.</p>",
+    "<p class='main-caption'>Kliknij 'Start Recording', aby nagrać mowę. Po kliknięciu 'Stop' tekst pojawi się automatycznie.</p>",
     unsafe_allow_html=True,
 )
 
@@ -61,7 +94,7 @@ with st.sidebar:
         "Model Whisper",
         options=["tiny", "base", "small"],
         index=1,
-        help="Model 'base' oferuje świetny balans między szybkością a dokładnością na darmowych serwerach CPU.",
+        help="Model 'base' oferuje optymalny balans między szybkością a dokładnością na maszynach CPU.",
     )
     language_choice = st.selectbox(
         "Język transkrypcji",
@@ -77,7 +110,7 @@ with st.spinner(f"Ładowanie modelu '{selected_model}'..."):
 
 st.subheader("1. Nagraj dźwięk")
 
-# Komponent z falą dźwiękową reagującą na głos
+# Komponent z falą dźwiękową (tylko Start Recording i Stop będą widoczne)
 wav_audio_data = st_audiorec()
 
 # Automatyczna transkrypcja natychmiast po naciśnięciu "Stop"
@@ -111,7 +144,7 @@ if wav_audio_data is not None:
                 if os.path.exists(TEMP_AUDIO_PATH):
                     os.remove(TEMP_AUDIO_PATH)
 
-    # Przycisk pobierania audio bezpośrednio pod nagraniem
+    # Własny przycisk pobierania audio umieszczony pod nagraniem
     st.download_button(
         label="⬇️ Pobierz plik nagrania (.wav)",
         data=wav_audio_data,
