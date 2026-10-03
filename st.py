@@ -63,6 +63,13 @@ OUTPUT_FILE = "transkrypcja.txt"
 LOGO_PATH = "logo.png"
 README_PATH = "readme.pdf"
 
+# Słownik mapujący przyjazne nazwy na identyfikatory modeli Whisper
+MODEL_MAP = {
+    "Najszybszy (tiny)": "tiny",
+    "Standardowy (base)": "base",
+    "Najdokładniejszy (small)": "small",
+}
+
 
 @st.cache_resource
 def load_whisper_model(model_name: str = "base"):
@@ -78,7 +85,7 @@ if "last_processed_audio_hash" not in st.session_state:
 # Tytuł główny
 st.markdown("<h1 class='main-title'>🎙️ Dyktafon AI</h1>", unsafe_allow_html=True)
 st.markdown(
-    "<p class='main-caption'>Kliknij 'Zacznij Nagrywać', powiedz coś i kliknij 'Stop'. Tekst pojawi się w polu poniżej.</p>",
+    "<p class='main-caption'>Kliknij 'Zacznij Nagrywać', powiedz coś i kliknij 'Stop'. Tekst pojawi się w polu poniżej. Jeśli nie jesteś zadowolony z rezultatów zmień model Whisper na \"najdokładniejszy\".</p>",
     unsafe_allow_html=True,
 )
 
@@ -88,12 +95,15 @@ with st.sidebar:
         st.image(LOGO_PATH)
 
     st.header("⚙ Ustawienia")
-    selected_model = st.selectbox(
+    model_options = list(MODEL_MAP.keys())
+    selected_model_label = st.selectbox(
         "Model Whisper",
-        options=["tiny", "base", "small"],
-        index=1,
-        help="Większy model = wyższa dokładność, ale dłuższy czas przetwarzania.",
+        options=model_options,
+        index=1,  # "Standardowy (base)" jest domyślny
+        help="Wybierz 'Najdokładniejszy' dla lepszej gramatyki i odmiany słów lub 'Najszybszy' dla natychmiastowego wyniku.",
     )
+    selected_model = MODEL_MAP[selected_model_label]
+
     language_choice = st.selectbox(
         "Język mowy",
         options=["pl", "en", "auto"],
@@ -127,7 +137,7 @@ with st.sidebar:
     else:
         st.info("Plik readme.pdf będzie dostępny po umieszczeniu go w folderze.")
 
-with st.spinner(f"Ładowanie modelu '{selected_model}'..."):
+with st.spinner(f"Ładowanie modelu '{selected_model_label}'..."):
     model = load_whisper_model(selected_model)
 
 st.subheader("1. Nagraj dźwięk")
@@ -147,7 +157,7 @@ if wav_audio_data is not None and len(wav_audio_data) > 0:
 
             try:
                 lang = None if language_choice == "auto" else language_choice
-                
+
                 result = model.transcribe(
                     tmp_path,
                     language=lang,
