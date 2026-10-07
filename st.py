@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import os
 import tempfile
@@ -21,10 +22,12 @@ st.markdown(
     .main-title, .main-caption {
         text-align: center;
     }
-    .sidebar-logo img {
+    .sidebar-logo a img {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
         border-radius: 0px !important;
-        width: 100%;
-        display: block;
+        display: block !important;
     }
     </style>
     """,
@@ -91,16 +94,10 @@ st.markdown(
 # Panel boczny: Logo z linkiem, Ustawienia, Instrukcja, Kontakt
 with st.sidebar:
     if os.path.exists(LOGO_PATH):
-        with open(LOGO_PATH, "r", encoding="utf-8") as svg_file:
-            svg_content = svg_file.read()
+        with open(LOGO_PATH, "rb") as svg_file:
+            svg_base64 = base64.b64encode(svg_file.read()).decode("utf-8")
         st.markdown(
-            f"""
-            <div class="sidebar-logo">
-                <a href="http://fabryka.tech/" target="_blank" rel="noopener noreferrer">
-                    {svg_content}
-                </a>
-            </div>
-            """,
+            f'<div class="sidebar-logo"><a href="http://fabryka.tech/" target="_blank" rel="noopener noreferrer"><img src="data:image/svg+xml;base64,{svg_base64}" alt="Logo" style="width:100%; border-radius:0;" /></a></div>',
             unsafe_allow_html=True,
         )
 
@@ -144,88 +141,4 @@ with st.sidebar:
     st.link_button(
         label="Formularz Kontaktowy",
         url="https://fabryka.tech/kontakt",
-        use_container_width=True,
-    )
-
-with st.spinner("Ładowanie modelu 'tiny'..."):
-    model = load_whisper_model(SELECTED_MODEL)
-
-st.subheader("1. Nagraj dźwięk")
-
-# Komponent nagrywający z falą dźwiękową
-wav_audio_data = st_audiorec()
-
-# Automatyczna transkrypcja po zakończeniu nagrywania
-if wav_audio_data is not None and len(wav_audio_data) > 0:
-    current_hash = hashlib.md5(wav_audio_data).hexdigest()
-
-    if current_hash != st.session_state.last_processed_audio_hash:
-        with st.spinner("⏳ Rozpoznawanie mowy..."):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-                tmp_file.write(wav_audio_data)
-                tmp_path = tmp_file.name
-
-            try:
-                lang = None if language_choice == "auto" else language_choice
-
-                result = model.transcribe(
-                    tmp_path,
-                    language=lang,
-                    task="transcribe",
-                    fp16=False,
-                )
-                recognized_text = result.get("text", "").strip()
-
-                if recognized_text:
-                    st.session_state.history.append(recognized_text)
-                    st.toast("✅ Tekst został rozpoznany!", icon="🎉")
-                else:
-                    st.warning("Nagranie było za ciche lub nie rozpoznano słów.")
-
-                st.session_state.last_processed_audio_hash = current_hash
-            except Exception as exc:
-                st.error(f"Błąd podczas transkrypcji: {exc}")
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-
-    # Przycisk pobierania pliku nagrania audio (.wav)
-    st.download_button(
-        label="⬇️ Pobierz plik nagrania (.wav)",
-        data=wav_audio_data,
-        file_name="nagranie.wav",
-        mime="audio/wav",
-        use_container_width=True,
-    )
-
-st.divider()
-
-# Wyświetlanie wyniku
-st.subheader("2. Rozpoznany tekst")
-
-full_transcription = "\n".join(st.session_state.history)
-
-st.text_area(
-    label="Wynik:",
-    value=full_transcription,
-    height=200,
-    placeholder="Tu pojawi się rozpoznany tekst...",
-)
-
-col_download, col_reset = st.columns([1, 1])
-
-with col_download:
-    if full_transcription:
-        st.download_button(
-            label="💾 Pobierz transkrypcję (.txt)",
-            data=full_transcription,
-            file_name=OUTPUT_FILE,
-            mime="text/plain",
-            use_container_width=True,
-        )
-
-with col_reset:
-    if st.button("🗑️ Wyczyść wynik", use_container_width=True):
-        st.session_state.history = []
-        st.session_state.last_processed_audio_hash = None
-        st.rerun()
+        use
