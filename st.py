@@ -60,15 +60,9 @@ components.html(
 )
 
 OUTPUT_FILE = "transkrypcja.txt"
-LOGO_PATH = "logo.png"
+LOGO_PATH = "logo3.svg"
 README_PATH = "readme.pdf"
-
-# Słownik mapujący nazwy na identyfikatory modeli Whisper
-MODEL_MAP = {
-    "Najszybszy (tiny)": "tiny",
-    "Standardowy (base)": "base",
-    "Najdokładniejszy (small)": "small",
-}
+SELECTED_MODEL = "tiny"
 
 
 @st.cache_resource
@@ -83,27 +77,18 @@ if "last_processed_audio_hash" not in st.session_state:
     st.session_state.last_processed_audio_hash = None
 
 # Tytuł główny i zmieniony tekst informacyjny
-st.markdown("<h1 class='main-title'>🎙️️ Dyktafon AI</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-title'>🎙 Dyktafon AI</h1>", unsafe_allow_html=True)
 st.markdown(
     "<p class='main-caption'>Kliknij 'Zacznij Nagrywać', powiedz coś i kliknij 'Stop'. Tekst pojawi się w polu poniżej. Staraj się mówić do mikrofonu wolno i wyraźnie.</p>",
     unsafe_allow_html=True,
 )
 
-# Panel boczny: Logo, Ustawienia na górze, Instrukcja na dole
+# Panel boczny: Logo, Ustawienia, Instrukcja, Kontakt
 with st.sidebar:
     if os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH)
 
     st.header("⚙ Ustawienia")
-    model_options = list(MODEL_MAP.keys())
-    selected_model_label = st.selectbox(
-        "Model Whisper",
-        options=model_options,
-        index=0,  # "Najszybszy (tiny)" jest domyślny
-        help="Wybierz 'Najdokładniejszy' dla lepszej gramatyki lub 'Najszybszy' dla natychmiastowego wyniku.",
-    )
-    selected_model = MODEL_MAP[selected_model_label]
-
     language_choice = st.selectbox(
         "Język mowy",
         options=["pl", "en", "auto"],
@@ -128,7 +113,7 @@ with st.sidebar:
         with open(README_PATH, "rb") as pdf_file:
             pdf_bytes = pdf_file.read()
         st.download_button(
-            label="📄 Pobierz pełną instrukcję (readme.pdf)",
+            label="📄 Pobierz pełną instrukcję readme",
             data=pdf_bytes,
             file_name="readme.pdf",
             mime="application/pdf",
@@ -137,8 +122,17 @@ with st.sidebar:
     else:
         st.info("Plik readme.pdf będzie dostępny po umieszczeniu go w folderze.")
 
-with st.spinner(f"Ładowanie modelu '{selected_model_label}'..."):
-    model = load_whisper_model(selected_model)
+    st.divider()
+
+    st.markdown("### Masz opinie, uwagi, komentarze?")
+    st.link_button(
+        label="Formularz Kontaktowy",
+        url="https://fabryka.tech/kontakt",
+        use_container_width=True,
+    )
+
+with st.spinner("Ładowanie modelu 'tiny'..."):
+    model = load_whisper_model(SELECTED_MODEL)
 
 st.subheader("1. Nagraj dźwięk")
 
