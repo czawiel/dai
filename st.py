@@ -141,4 +141,88 @@ with st.sidebar:
     st.link_button(
         label="Formularz Kontaktowy",
         url="https://fabryka.tech/kontakt",
-        use
+        use_container_width=True,
+    )
+
+with st.spinner("Ładowanie modelu 'tiny'..."):
+    model = load_whisper_model(SELECTED_MODEL)
+
+st.subheader("1. Nagraj dźwięk")
+
+# Komponent nagrywający z falą dźwiękową
+wav_audio_data = st_audiorec()
+
+# Automatyczna transkrypcja po zakończeniu nagrywania
+if wav_audio_data is not None and len(wav_audio_data) > 0:
+    current_hash = hashlib.md5(wav_audio_data).hexdigest()
+
+    if current_hash != st.session_state.last_processed_audio_hash:
+        with st.spinner("⏳ Rozpoznawanie mowy..."):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+                tmp_file.write(wav_audio_data)
+                tmp_path = tmp_file.name
+
+            try:
+                lang = None if language_choice == "auto" else language_choice
+
+                result = model.transcribe(
+                    tmp_path,
+                    language=lang,
+                    task="transcribe",
+                    fp16=False,
+                )
+                recognized_text = result.get("text", "").strip()
+
+                if recognized_text:
+                    st.session_state.history.append(recognized_text)
+                    st.toast("✅ Tekst został rozpoznany!", icon="🎉")
+                else:
+                    st.warning("Nagranie było za ciche lub nie rozpoznano słów.")
+
+                st.session_state.last_processed_audio_hash = current_hash
+            except Exception as exc:
+                st.error(f"Błąd podczas transkrypcji: {exc}")
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+
+    # Przycisk pobierania pliku nagrania audio (.wav)
+    st.download_button(
+        label="⬇️ Pobierz plik nagrania (.wav)",
+        data=wav_audio_data,
+        file_name="nagranie.wav",
+        mime="audio/wav",
+        use_container_width=True,
+    )
+
+st.divider()
+
+# Wyświetlanie wyniku
+st.subheader("2. Rozpoznany tekst")
+
+full_transcription = "\n".join(st.session_state.history)
+
+st.text_area(
+    label="Wynik:",
+    value=full_transcription,
+    height=200,
+    placeholder="Tu pojawi się rozpoznany tekst...",
+)
+
+col_download, col_reset = st.columns([1, 1])
+
+with col_download:
+    if full_transcription:
+        st.download_button(
+            label="💾 Pobierz transkrypcję (.txt)",
+            data=full_transcription,
+            file_name=OUTPUT_FILE,
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+with col_reset:
+    if st.button("🗑️ Wyczyść wynik", use_container_width=True):
+        st.session_state.history = []
+        st.session_state.last_processed_audio_hash = None
+        st.rerun()
